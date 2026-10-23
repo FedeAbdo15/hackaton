@@ -1,0 +1,7 @@
+La idea es hacer algo nuevo que le sirva al usuario. Cosas "cool".
+Ideas: tamagotchi distribuido, smartificador dumbificador de heladeras, tetris battle, radio y analisis de frecuencia.
+Se pueden simular sensores con la otra placa.
+RAM 8MB FLASH 16MB
+Hay que clonar el repo para cargar a la placa.
+Header derecha i2c, izq parlante con ampli.
+Al final del ppt hay un repo con un ej que levanta todos los perifericos -wifi y i2c
