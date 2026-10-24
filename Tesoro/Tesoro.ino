@@ -1,87 +1,84 @@
 /*
  * Tesoro — Búsqueda del tesoro BLE
- * Requiere: esp32 by Espressif Systems + NimBLE-Arduino (h2zero) v2.x
+ *
+ * Transmite un beacon BLE con el UUID del tesoro para que el Buscador lo encuentre.
+ * Además tiene un cronómetro en la OLED y un buzzer que pita cada 5 s, ambos
+ * controlados por dos botones.
+ *
+ * Flujo de eventos:
+ *  - Al encender:        arranca el beacon y la OLED muestra 00:00:00 detenido.
+ *  - Botón START (19):   inicia/reanuda el timer y el buzzer.
+ *  - Botón STOP  (18):   pausa el timer y el buzzer (el tiempo queda en pantalla).
+ *  - Cada 1 s:           el timer suma un segundo.
+ *  - Cada 5 s:           pitido del buzzer (si está activo) y health check del beacon.
+ *
+ * Requiere:
+ *  - Placa: esp32 by Espressif Systems
+ *  - Biblioteca: NimBLE-Arduino (h2zero) v2.x
+ *  - Bibliotecas: Adafruit SSD1306 + Adafruit GFX
  */
 
-#include <NimBLEDevice.h>
-
-namespace Config {
-  constexpr char TREASURE_UUID[] = "7e2a1c4b-3f9d-4e8a-9b21-5c6d0f3a8e17";
-  constexpr char DEVICE_NAME[]   = "Tesoro";
-
-  constexpr int8_t TX_POWER_DBM = 9;
-
-  // Unidades de 0.625 ms (80 = 50 ms, 160 = 100 ms)
-  constexpr uint16_t ADV_INTERVAL_MIN = 80;
-  constexpr uint16_t ADV_INTERVAL_MAX = 160;
-
-  constexpr unsigned long SERIAL_BAUD              = 9600;
-  constexpr unsigned long HEALTH_CHECK_INTERVAL_MS = 5000;
-}
-
-class TreasureBeacon {
-public:
-  void begin() {
-    NimBLEDevice::init(Config::DEVICE_NAME);
-    NimBLEDevice::setPower(Config::TX_POWER_DBM);
-
-    advertising_ = NimBLEDevice::getAdvertising();
-    advertising_->setAdvertisementData(buildAdvertisementData());
-    advertising_->setConnectableMode(BLE_GAP_CONN_MODE_NON);
-    advertising_->setMinInterval(Config::ADV_INTERVAL_MIN);
-    advertising_->setMaxInterval(Config::ADV_INTERVAL_MAX);
-
-    start();
-  }
-
-  bool isAdvertising() const {
-    return advertising_ != nullptr && advertising_->isAdvertising();
-  }
-
-  bool start() {
-    return advertising_->start();
-  }
-
-private:
-  NimBLEAdvertising* advertising_ = nullptr;
-
-  static NimBLEAdvertisementData buildAdvertisementData() {
-    NimBLEAdvertisementData data;
-    data.setFlags(BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP);
-    data.setCompleteServices(NimBLEUUID(Config::TREASURE_UUID));
-    data.setName(Config::DEVICE_NAME);
-    return data;
-  }
-};
+#include "config.h"
+#include "TreasureBeacon.h"
+#include "TimerDisplay.h"
+#include "Buzzer.h"
+#include "Button.h"
 
 TreasureBeacon beacon;
-unsigned long lastHealthCheckMs = 0;
+TimerDisplay   timerDisplay;
+Buzzer         buzzer;
+Button         startButton(Config::BUTTON_START_PIN);
+Button         stopButton(Config::BUTTON_STOP_PIN);
 
-void logStatus(bool advertising) {
-  Serial.print("[Tesoro] ");
-  Serial.println(advertising ? "Anunciando OK" : "Advertising detenido, reiniciando...");
+// Evento: botón START → arranca timer y buzzer juntos (si no estaban corriendo)
+void onStartPressed(unsigned long now) {
+  if (timerDisplay.isRunning()) {
+    return;
+  }
+  timerDisplay.start(now);
+  buzzer.start(now);
+  Serial.println("[Tesoro] Timer y buzzer iniciados");
+}
+
+// Evento: botón STOP → pausa timer y buzzer (si estaban corriendo)
+void onStopPressed() {
+  if (!timerDisplay.isRunning()) {
+    return;
+  }
+  timerDisplay.stop();
+  buzzer.stop();
+  Serial.print("[Tesoro] Timer y buzzer detenidos en ");
+  Serial.print(timerDisplay.seconds());
+  Serial.println(" s");
 }
 
 void setup() {
   Serial.begin(Config::SERIAL_BAUD);
   Serial.println("[Tesoro] Iniciando...");
 
+  initLeds();
+  startButton.begin();
+  stopButton.begin();
+  buzzer.begin();
+  timerDisplay.begin();
   beacon.begin();
 
-  Serial.print("[Tesoro] UUID: ");
-  Serial.println(Config::TREASURE_UUID);
+  Serial.println("[Tesoro] Listo. Apretá START para iniciar el timer.");
 }
 
 void loop() {
   const unsigned long now = millis();
-  if (now - lastHealthCheckMs < Config::HEALTH_CHECK_INTERVAL_MS) {
-    return;
-  }
-  lastHealthCheckMs = now;
 
-  const bool advertising = beacon.isAdvertising();
-  logStatus(advertising);
-  if (!advertising) {
-    beacon.start();
+  // 1) Entradas
+  if (startButton.wasPressed(now)) {
+    onStartPressed(now);
   }
+  if (stopButton.wasPressed(now)) {
+    onStopPressed();
+  }
+
+  // 2) Módulos (todos no bloqueantes)
+  timerDisplay.update(now);
+  buzzer.update(now);
+  beacon.update(now);
 }
