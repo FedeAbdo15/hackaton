@@ -17,10 +17,9 @@ namespace Config {
   constexpr unsigned long SIGNAL_TIMEOUT_MS = 3000;   // sin lecturas por este tiempo = SIN SEÑAL
 
   // --- Umbrales de proximidad (dBm, calibrar en el lugar) ---
-  constexpr float THRESHOLD_FRIO       = -110.0f;
-  constexpr float THRESHOLD_TIBIO      = -80.0f;
-  constexpr float THRESHOLD_CALIENTE   = -68.0f;
-  constexpr float THRESHOLD_ENCONTRADO = -35.0f;
+  constexpr float THRESHOLD_TIBIO      = -60.0f;
+  constexpr float THRESHOLD_CALIENTE   = -45.0f;
+  constexpr float THRESHOLD_ENCONTRADO = -10.0f;
   constexpr float HYSTERESIS_DB        = 3.0f;
 
   // --- Juego y Tiempos ---

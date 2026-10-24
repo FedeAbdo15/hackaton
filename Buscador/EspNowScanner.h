@@ -26,9 +26,9 @@ struct RssiReading {
 // Comunicación 100% ESP-NOW del Buscador:
 //  - Recibe paquetes broadcast TreasureBeacon y extrae el RSSI de la cabecera de radio.
 //  - Envía comandos broadcast GameStart (al presionar BOTÓN N2) y TreasureFound (al encontrarlo).
-class BleScanner {
+class EspNowScanner {
 public:
-  BleScanner() = default;
+  EspNowScanner() = default;
 
   void begin();
   RssiReading read();

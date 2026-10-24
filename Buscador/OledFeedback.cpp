@@ -84,20 +84,17 @@ void OledFeedback::drawPlaying(Proximity proximity) {
     return;
   }
 
-  const bool hasSignal = game_.hasSignal() && proximity != Proximity::SinSenal;
-  const int dist = game_.distance();
-
-  // Arriba en texto chico: distancia (o SIN SENAL cuando no hay señal)
-  if (hasSignal && dist >= 0) {
-    char value[8];
-    snprintf(value, sizeof(value), "%d", dist);
-    OledAnimations::printCentered(display_, value, 1, 0);
-  } else {
+  // Arriba en texto chico: SIN SENAL solo cuando el estado es SinSenal, si no la distancia (0 a 100)
+  if (proximity == Proximity::SinSenal) {
     OledAnimations::printCentered(display_, toString(Proximity::SinSenal), 1, 0);
+  } else {
+    char value[8];
+    snprintf(value, sizeof(value), "%d", game_.distance());
+    OledAnimations::printCentered(display_, value, 1, 0);
   }
 
   // En el medio grande: animación según el threshold (Pingüino, Tibia, This is fine)
-  drawAnimation(proximity, hasSignal);
+  drawAnimation(proximity);
 }
 
 void OledFeedback::drawVictory() {
@@ -110,22 +107,16 @@ void OledFeedback::drawVictory() {
   }
 
   OledAnimations::drawEncontrado(display_, speedFrame);
-
-  char timeText[16];
-  snprintf(timeText, sizeof(timeText), "%lu s", static_cast<unsigned long>(secs));
-  OledAnimations::printCentered(display_, timeText, 1, 22);
 }
 
-void OledFeedback::drawAnimation(Proximity proximity, bool hasSignal) {
+void OledFeedback::drawAnimation(Proximity proximity) {
   constexpr int16_t cx = Config::OLED_WIDTH / 2;
   constexpr int16_t cy = 39;
 
-  if (!hasSignal || proximity == Proximity::SinSenal) {
-    OledAnimations::drawSinSenal(display_, animFrame_, cx, cy);
-    return;
-  }
-
   switch (proximity) {
+    case Proximity::SinSenal:
+      OledAnimations::drawSinSenal(display_, animFrame_, cx, cy);
+      break;
     case Proximity::Frio:
       OledAnimations::drawFrio(display_, animFrame_, cx, cy);
       break;

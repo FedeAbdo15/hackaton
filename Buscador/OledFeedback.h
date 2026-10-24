@@ -24,7 +24,7 @@ private:
   void drawStarting(unsigned long now);
   void drawPlaying(Proximity proximity);
   void drawVictory();
-  void drawAnimation(Proximity proximity, bool hasSignal);
+  void drawAnimation(Proximity proximity);
 
   const GameState& game_;
   Adafruit_SSD1306 display_;

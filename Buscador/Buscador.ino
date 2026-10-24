@@ -18,13 +18,13 @@
  */
 
 #include "config.h"
-#include "BleScanner.h"
+#include "EspNowScanner.h"
 #include "Button.h"
 #include "GameState.h"
 #include "OledFeedback.h"
 #include "SerialFeedback.h"
 
-BleScanner     scanner;
+EspNowScanner  scanner;
 Button         buttonN2(Config::BUTTON_N2_PIN);
 GameState      game;
 
