@@ -1,5 +1,7 @@
 #include "OledFeedback.h"
+#include "OledAnimations.h"
 #include "config.h"
+#include <math.h>
 
 OledFeedback::OledFeedback(const GameState& game)
   : game_(game),
@@ -14,8 +16,11 @@ void OledFeedback::begin() {
     Serial.println("[Buscador] No se pudo iniciar la pantalla OLED");
     return;
   }
+  display_.setRotation(Config::OLED_ROTATION);
   display_.clearDisplay();
   display_.setTextColor(SSD1306_WHITE);
+  OledAnimations::printCentered(display_, "Presiona el boton 1", 1, 20);
+  OledAnimations::printCentered(display_, "para empezar", 1, 34);
   display_.display();
 }
 
@@ -23,55 +28,71 @@ void OledFeedback::update(Proximity proximity, unsigned long now) {
   if (!ready_) {
     return;
   }
-  int rssiDraw = 0;
-  const bool hasSignal = game_.hasSignal() && proximity != Proximity::SinSenal;
-  const int rssi = hasSignal ? static_cast<int>(lroundf(game_.filteredRssi())) : 0;
-
-  const bool changed = !drawnOnce_ ||
-                       proximity != lastProximity_ ||
-                       hasSignal != lastHasSignal_ ||
-                       rssi != lastRssi_;
-  if (!changed || now - lastDrawMs_ < Config::OLED_REFRESH_MS) {
+  if (now - lastDrawMs_ < Config::OLED_REFRESH_MS) {
     return;
   }
 
-  rssiDraw = map(-rssi, 35, 90, 0, 100);
-  if (rssiDraw >= 0)
-  {
-      draw(proximity, hasSignal, rssiDraw);
-  }
-  
+  const bool hasSignal = game_.hasSignal() && proximity != Proximity::SinSenal;
+  const int rssi = hasSignal ? static_cast<int>(lroundf(game_.filteredRssi())) : 0;
 
-  drawnOnce_ = true;
-  lastProximity_ = proximity;
-  lastHasSignal_ = hasSignal;
-  lastRssi_ = rssi;
+  int rssiDraw = 0;
+  if (hasSignal) {
+    rssiDraw = map(-rssi, 35, 90, 0, 100);
+    if (rssiDraw < 0) {
+      rssiDraw = 0;
+    }
+  }
+
+  draw(proximity, hasSignal, rssiDraw);
+
+  animFrame_++;
   lastDrawMs_ = now;
 }
 
 void OledFeedback::draw(Proximity proximity, bool hasSignal, int rssi) {
   display_.clearDisplay();
 
-  // Estado arriba (texto chico)
-  printCentered(toString(proximity), 1, 0);
-
-  // RSSI filtrado en grande
-  char value[8];
-  if (hasSignal) {
-    snprintf(value, sizeof(value), "%d", rssi);
-  } else {
-    snprintf(value, sizeof(value), "--");
+  if (proximity == Proximity::Encontrado) {
+    OledAnimations::drawEncontrado(display_, animFrame_);
+    display_.display();
+    return;
   }
-  printCentered(value, 4, 18);
+
+  // Arriba en texto chico: número (o SIN SENAL cuando no hay señal)
+  if (hasSignal) {
+    char value[8];
+    snprintf(value, sizeof(value), "%d", rssi);
+    OledAnimations::printCentered(display_, value, 1, 0);
+  } else {
+    OledAnimations::printCentered(display_, toString(Proximity::SinSenal), 1, 0);
+  }
+
+  // En el medio grande: animación según la temperatura
+  drawAnimation(proximity, hasSignal);
 
   display_.display();
 }
 
-void OledFeedback::printCentered(const char* text, uint8_t size, int16_t y) {
-  int16_t x1, y1;
-  uint16_t w, h;
-  display_.setTextSize(size);
-  display_.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
-  display_.setCursor((Config::OLED_WIDTH - w) / 2, y);
-  display_.print(text);
+void OledFeedback::drawAnimation(Proximity proximity, bool hasSignal) {
+  constexpr int16_t cx = Config::OLED_WIDTH / 2;
+  constexpr int16_t cy = 39;
+
+  if (!hasSignal || proximity == Proximity::SinSenal) {
+    OledAnimations::drawSinSenal(display_, animFrame_, cx, cy);
+    return;
+  }
+
+  switch (proximity) {
+    case Proximity::Frio:
+      OledAnimations::drawFrio(display_, animFrame_, cx, cy);
+      break;
+    case Proximity::Tibio:
+      OledAnimations::drawTibio(display_, animFrame_, cx, cy);
+      break;
+    case Proximity::Caliente:
+      OledAnimations::drawCaliente(display_, animFrame_);
+      break;
+    default:
+      break;
+  }
 }

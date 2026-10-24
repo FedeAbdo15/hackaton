@@ -8,7 +8,9 @@ namespace {
 BleScanner::BleScanner(const char* targetUuid) : targetUuid_(targetUuid) {}
 
 void BleScanner::begin() {
-  NimBLEDevice::init("");
+  if (!NimBLEDevice::isInitialized()) {
+    NimBLEDevice::init(Config::DEVICE_NAME);
+  }
 
   NimBLEScan* scan = NimBLEDevice::getScan();
   scan->setScanCallbacks(this, true);  // true = recibir duplicados (una lectura por anuncio)
