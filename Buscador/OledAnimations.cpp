@@ -8,6 +8,45 @@ namespace {
     display.drawLine(x - r, y, x + r, y, SSD1306_WHITE);
     display.drawLine(x, y - r, x, y + r, SSD1306_WHITE);
   }
+
+  void drawAnatomicalLeg(Adafruit_SSD1306& display, int16_t x, int8_t outerDir, bool highlightPulse) {
+    // 1. Fémur distal y rótula (rodilla arriba, en contorno)
+    display.drawLine(x - 3, 11, x - 6, 17, SSD1306_WHITE);
+    display.drawLine(x + 3, 11, x + 6, 17, SSD1306_WHITE);
+    display.drawCircle(x - 4, 19, 3, SSD1306_WHITE);
+    display.drawCircle(x + 4, 19, 3, SSD1306_WHITE);
+    display.fillCircle(x, 19, 2, SSD1306_BLACK);
+    display.drawCircle(x, 19, 2, SSD1306_WHITE);
+
+    // 2. TIBIA (rellena y resaltada en el centro, ancha en la meseta tibial y en el tobillo)
+    display.fillTriangle(x - 6, 24, x + 6, 24, x, 34, SSD1306_WHITE);
+    display.fillCircle(x - 4, 25, 2, SSD1306_WHITE);
+    display.fillCircle(x + 4, 25, 2, SSD1306_WHITE);
+    display.fillRect(x - 2, 28, 5, 23, SSD1306_WHITE);
+    display.fillTriangle(x, 46, x - 5, 53, x + 5, 53, SSD1306_WHITE);
+
+    // Pulso de resaltado sobre la tibia + marcas de brillo
+    if (highlightPulse) {
+      display.drawFastVLine(x, 26, 25, SSD1306_BLACK);
+      const int16_t innerX = x - outerDir * 6;
+      display.drawLine(innerX, 35, innerX - outerDir * 3, 33, SSD1306_WHITE);
+      display.drawLine(innerX, 39, innerX - outerDir * 3, 39, SSD1306_WHITE);
+      display.drawLine(innerX, 43, innerX - outerDir * 3, 45, SSD1306_WHITE);
+    }
+
+    // 3. Peroné / Fíbula (hueso fino por el lado externo de la pierna)
+    const int16_t fx = x + outerDir * 8;
+    display.drawCircle(fx, 27, 2, SSD1306_WHITE);
+    display.drawLine(fx, 29, x + outerDir * 7, 53, SSD1306_WHITE);
+    display.drawCircle(x + outerDir * 7, 54, 1, SSD1306_WHITE);
+
+    // 4. Pie esquelético (tarso, 5 metatarsianos y falanges abajo)
+    display.drawRect(x - 4, 55, 9, 3, SSD1306_WHITE);
+    for (int8_t i = -2; i <= 2; ++i) {
+      display.drawLine(x + i, 58, x + i * 3, 62, SSD1306_WHITE);
+      display.drawPixel(x + i * 3, 63, SSD1306_WHITE);
+    }
+  }
 }
 
 void printCentered(Adafruit_SSD1306& display, const char* text, uint8_t size, int16_t y) {
@@ -67,30 +106,15 @@ void drawFrio(Adafruit_SSD1306& display, uint8_t animFrame, int16_t cx, int16_t 
 }
 
 void drawTibio(Adafruit_SSD1306& display, uint8_t animFrame, int16_t cx, int16_t cy) {
-  // Una tibia (hueso) balanceándose en el centro
-  const int8_t tilt = ((animFrame / 2) % 2 == 0) ? 4 : -4;
-  const int16_t lx = cx - 24;
-  const int16_t ly = cy - tilt;
-  const int16_t rx = cx + 24;
-  const int16_t ry = cy + tilt;
+  // Ilustración anatómica de las dos piernas de frente con las dos tibias resaltadas y pulsando
+  (void)cy;
+  const bool highlightPulse = ((animFrame / 2) % 2) != 0;
 
-  // Epífisis (extremos redondeados del hueso)
-  display.fillCircle(lx - 2, ly - 5, 6, SSD1306_WHITE);
-  display.fillCircle(lx - 2, ly + 5, 6, SSD1306_WHITE);
-  display.fillCircle(rx + 2, ry - 5, 6, SSD1306_WHITE);
-  display.fillCircle(rx + 2, ry + 5, 6, SSD1306_WHITE);
+  // Pierna derecha anatómica (a la izquierda de la pantalla, peroné hacia afuera -1)
+  drawAnatomicalLeg(display, cx - 18, -1, highlightPulse);
 
-  // Diáfisis (cuerpo central de la tibia)
-  display.fillTriangle(lx, ly - 4, lx, ly + 4, rx, ry - 4, SSD1306_WHITE);
-  display.fillTriangle(lx, ly + 4, rx, ry - 4, rx, ry + 4, SSD1306_WHITE);
-
-  // Muescas en los extremos para darle relieve de hueso
-  display.drawLine(lx - 8, ly, lx - 5, ly, SSD1306_BLACK);
-  display.drawLine(rx + 5, ry, rx + 8, ry, SSD1306_BLACK);
-
-  // Líneas de movimiento en los extremos
-  display.drawLine(lx - 6, ly - 14, lx + 2, ly - 14, SSD1306_WHITE);
-  display.drawLine(rx - 2, ry + 14, rx + 6, ry + 14, SSD1306_WHITE);
+  // Pierna izquierda anatómica (a la derecha de la pantalla, peroné hacia afuera +1)
+  drawAnatomicalLeg(display, cx + 18, +1, highlightPulse);
 }
 
 void drawCaliente(Adafruit_SSD1306& display, uint8_t animFrame) {
