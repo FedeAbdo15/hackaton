@@ -1,16 +1,15 @@
 /*
  * Tesoro — Búsqueda del tesoro BLE
  *
- * Transmite un beacon BLE con el UUID del tesoro para que el Buscador lo encuentre.
- * Además tiene un cronómetro en la OLED y un buzzer que pita cada 5 s, ambos
- * controlados por dos botones.
- *
- * Flujo de eventos:
- *  - Al encender:        arranca el beacon y la OLED muestra 00:00:00 detenido.
- *  - Botón START (19):   inicia/reanuda el timer y el buzzer.
- *  - Botón STOP  (18):   pausa el timer y el buzzer (el tiempo queda en pantalla).
- *  - Cada 1 s:           el timer suma un segundo.
- *  - Cada 5 s:           pitido del buzzer (si está activo) y health check del beacon.
+ * Flujo de juego en el Tesoro:
+ *  1. Al encender:        la OLED muestra 00:00:00 detenido; el beacon no transmite aún.
+ *  2. Botón N1 (GPIO 19): Jugador 1 coloca el Tesoro y presiona N1 → inicia la transmisión
+ *                         del beacon BLE y queda escuchando la señal del Buscador.
+ *  3. Inicio de juego:    cuando el Buscador presiona Botón N2 y comienza a transmitir su señal,
+ *                         el Tesoro la detecta, inicia el timer en -00:00:05 (+1s cada segundo)
+ *                         y activa el buzzer cada 5s (primer pitido en 00:00:00).
+ *  4. Tesoro encontrado:  cuando el Buscador encuentra el Tesoro y deja de transmitir,
+ *                         el Tesoro detiene el timer y el buzzer.
  *
  * Requiere:
  *  - Placa: esp32 by Espressif Systems
@@ -20,34 +19,52 @@
 
 #include "config.h"
 #include "TreasureBeacon.h"
+#include "SeekerScanner.h"
 #include "TimerDisplay.h"
 #include "Buzzer.h"
 #include "Button.h"
 
+enum class TreasureState {
+  Idle,          // Esperando que Jugador 1 presione BOTÓN N1
+  WaitingSeeker, // Transmitiendo beacon y esperando señal del Buscador (BOTÓN N2)
+  Running,       // Juego en curso: timer desde -5s y buzzer cada 5s
+  Found          // Tesoro encontrado: timer y buzzer detenidos
+};
+
 TreasureBeacon beacon;
+SeekerScanner  seekerScanner(Config::SEEKER_UUID);
 TimerDisplay   timerDisplay;
 Buzzer         buzzer;
-Button         startButton(Config::BUTTON_START_PIN);
-Button         stopButton(Config::BUTTON_STOP_PIN);
+Button         buttonN1(Config::BUTTON_N1_PIN);
 
-// Evento: botón START → arranca timer y buzzer juntos (si no estaban corriendo)
-void onStartPressed(unsigned long now) {
-  if (timerDisplay.isRunning()) {
+TreasureState state = TreasureState::Idle;
+
+// Evento: Jugador 1 presiona BOTÓN N1 → comienza a transmitir y espera al Buscador
+void onButtonN1Pressed() {
+  if (state != TreasureState::Idle && state != TreasureState::Found) {
     return;
   }
-  timerDisplay.start(now);
-  buzzer.start(now);
-  Serial.println("[Tesoro] Timer y buzzer iniciados");
+  beacon.start();
+  seekerScanner.start();
+  state = TreasureState::WaitingSeeker;
+  Serial.println("[Tesoro] BOTON N1 presionado: transmitiendo y esperando al Buscador...");
 }
 
-// Evento: botón STOP → pausa timer y buzzer (si estaban corriendo)
-void onStopPressed() {
-  if (!timerDisplay.isRunning()) {
-    return;
-  }
+// Evento: el Buscador comenzó a transmitir (Jugador 2 presionó BOTÓN N2)
+void onGameStarted(unsigned long now) {
+  timerDisplay.start(now);
+  buzzer.start(now);
+  state = TreasureState::Running;
+  Serial.println("[Tesoro] Buscador detectado: timer iniciado en -5s y buzzer activo");
+}
+
+// Evento: el Buscador dejó de transmitir (encontró el Tesoro)
+void onTreasureFound() {
   timerDisplay.stop();
   buzzer.stop();
-  Serial.print("[Tesoro] Timer y buzzer detenidos en ");
+  seekerScanner.stop();
+  state = TreasureState::Found;
+  Serial.print("[Tesoro] Tesoro encontrado! Timer y buzzer detenidos en ");
   Serial.print(timerDisplay.seconds());
   Serial.println(" s");
 }
@@ -56,25 +73,27 @@ void setup() {
   Serial.begin(Config::SERIAL_BAUD);
   Serial.println("[Tesoro] Iniciando...");
 
-  initLeds();
-  startButton.begin();
-  stopButton.begin();
+  buttonN1.begin();
   buzzer.begin();
   timerDisplay.begin();
   beacon.begin();
+  seekerScanner.begin();
 
-  Serial.println("[Tesoro] Listo. Apretá START para iniciar el timer.");
+  Serial.println("[Tesoro] Listo. Presiona BOTON N1 para comenzar a transmitir.");
 }
 
 void loop() {
   const unsigned long now = millis();
 
-  // 1) Entradas
-  if (startButton.wasPressed(now)) {
-    onStartPressed(now);
+  // 1) Entradas y transiciones de estado
+  if (buttonN1.wasPressed(now)) {
+    onButtonN1Pressed();
   }
-  if (stopButton.wasPressed(now)) {
-    onStopPressed();
+
+  if (state == TreasureState::WaitingSeeker && seekerScanner.hasStarted()) {
+    onGameStarted(now);
+  } else if (state == TreasureState::Running && seekerScanner.hasStopped(now)) {
+    onTreasureFound();
   }
 
   // 2) Módulos (todos no bloqueantes)

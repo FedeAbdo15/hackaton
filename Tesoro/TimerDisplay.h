@@ -8,7 +8,7 @@
 // Eventos:
 //  - begin():  inicia la pantalla y muestra 00:00:00 detenido.
 //              Si la OLED falla, el resto del Tesoro sigue funcionando.
-//  - start():  empieza (o reanuda) el conteo desde el tiempo actual.
+//  - start():  empieza el conteo desde TIMER_START_SECONDS (-5 s: -00:00:05).
 //  - stop():   pausa el conteo; la pantalla queda mostrando el último tiempo.
 //  - update(): suma 1 s cada TIMER_TICK_MS y redibuja solo en ese momento.
 class TimerDisplay {
@@ -20,8 +20,8 @@ public:
   void stop();
   void update(unsigned long now);  // no bloqueante
 
-  bool     isRunning() const { return running_; }
-  uint32_t seconds()   const { return seconds_; }
+  bool    isRunning() const { return running_; }
+  int32_t seconds()   const { return seconds_; }
 
 private:
   void draw();
@@ -30,6 +30,6 @@ private:
   Adafruit_SSD1306 display_;
   bool          ready_      = false;
   bool          running_    = false;
-  uint32_t      seconds_    = 0;
+  int32_t       seconds_    = 0;
   unsigned long lastTickMs_ = 0;
 };

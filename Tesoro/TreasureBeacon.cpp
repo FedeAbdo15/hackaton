@@ -10,14 +10,33 @@ void TreasureBeacon::begin() {
   advertising_->setConnectableMode(BLE_GAP_CONN_MODE_NON);  // solo anuncia, no acepta conexiones
   advertising_->setMinInterval(Config::ADV_INTERVAL_MIN);
   advertising_->setMaxInterval(Config::ADV_INTERVAL_MAX);
+}
 
-  start();
+bool TreasureBeacon::start() {
+  if (advertising_ == nullptr) {
+    return false;
+  }
+  active_ = true;
+  lastHealthCheckMs_ = millis();
+  const bool ok = advertising_->start();
+  if (ok) {
+    Serial.print("[Tesoro] Beacon anunciando UUID: ");
+    Serial.println(Config::TREASURE_UUID);
+  }
+  return ok;
+}
 
-  Serial.print("[Tesoro] Beacon anunciando UUID: ");
-  Serial.println(Config::TREASURE_UUID);
+void TreasureBeacon::stop() {
+  active_ = false;
+  if (advertising_ != nullptr && advertising_->isAdvertising()) {
+    advertising_->stop();
+  }
 }
 
 void TreasureBeacon::update(unsigned long now) {
+  if (!active_) {
+    return;
+  }
   if (now - lastHealthCheckMs_ < Config::HEALTH_CHECK_INTERVAL_MS) {
     return;
   }
@@ -29,15 +48,11 @@ void TreasureBeacon::update(unsigned long now) {
   }
 
   Serial.println("[Tesoro] Advertising detenido, reiniciando...");
-  start();
+  advertising_->start();
 }
 
 bool TreasureBeacon::isAdvertising() const {
   return advertising_ != nullptr && advertising_->isAdvertising();
-}
-
-bool TreasureBeacon::start() {
-  return advertising_->start();
 }
 
 NimBLEAdvertisementData TreasureBeacon::buildAdvertisementData() {

@@ -23,8 +23,10 @@ void TimerDisplay::start(unsigned long now) {
   if (running_) {
     return;
   }
+  seconds_    = Config::TIMER_START_SECONDS;
   running_    = true;
   lastTickMs_ = now;
+  draw();
 }
 
 void TimerDisplay::stop() {
@@ -45,12 +47,20 @@ void TimerDisplay::draw() {
     return;
   }
 
-  const unsigned long h   = seconds_ / 3600;
-  const unsigned int  m   = (seconds_ % 3600) / 60;
-  const unsigned int  sec = seconds_ % 60;
+  const bool          negative = seconds_ < 0;
+  const unsigned long absSec   = negative
+                                   ? static_cast<unsigned long>(-seconds_)
+                                   : static_cast<unsigned long>(seconds_);
+  const unsigned long h   = absSec / 3600;
+  const unsigned int  m   = (absSec % 3600) / 60;
+  const unsigned int  sec = absSec % 60;
 
   char text[16];
-  snprintf(text, sizeof(text), "%02lu:%02u:%02u", h, m, sec);
+  if (negative) {
+    snprintf(text, sizeof(text), "-%02lu:%02u:%02u", h, m, sec);
+  } else {
+    snprintf(text, sizeof(text), "%02lu:%02u:%02u", h, m, sec);
+  }
 
   display_.clearDisplay();
   printCentered(text, 2);
