@@ -3,29 +3,15 @@
 #include <Arduino.h>
 
 // Toda la configuración del Tesoro en un solo lugar.
-// Cambiar pines, tiempos o potencia acá, sin tocar los módulos.
+// Cambiar pines, tiempos o canal acá, sin tocar los módulos.
 namespace Config {
-  // --- Identidad BLE (tienen que coincidir con Buscador/config.h) ---
-  constexpr char TREASURE_UUID[] = "7e2a1c4b-3f9d-4e8a-9b21-5c6d0f3a8e17";
-  constexpr char SEEKER_UUID[]   = "c3f8a2d1-6b4e-4d9a-8c15-9e0b3f7a2d61";
-  constexpr char DEVICE_NAME[]   = "Tesoro";
+  // --- Protocolo ESP-NOW (tiene que coincidir con Buscador/config.h) ---
+  constexpr uint32_t      PACKET_MAGIC       = 0x5445534F;  // "TESO"
+  constexpr uint8_t       ESPNOW_CHANNEL     = 1;
+  constexpr unsigned long BEACON_INTERVAL_MS = 80;          // ~12.5 paquetes/s para medir RSSI
 
   // --- Serial ---
   constexpr unsigned long SERIAL_BAUD = 9600;
-
-  // --- Beacon BLE ---
-  constexpr int8_t TX_POWER_DBM = 9;
-
-  // Unidades de 0.625 ms (80 = 50 ms, 160 = 100 ms)
-  constexpr uint16_t ADV_INTERVAL_MIN = 80;
-  constexpr uint16_t ADV_INTERVAL_MAX = 160;
-
-  constexpr unsigned long HEALTH_CHECK_INTERVAL_MS = 5000;  // cada cuánto se verifica el advertising
-
-  // --- Escaneo BLE del Buscador ---
-  constexpr uint16_t      SCAN_INTERVAL_MS  = 100;
-  constexpr uint16_t      SCAN_WINDOW_MS    = 50;    // deja ventana de radio para transmitir el beacon
-  constexpr unsigned long SEEKER_TIMEOUT_MS = 5000;  // sin señal del Buscador por este tiempo = encontrado
 
   // --- OLED SSD1306 0,96" por SPI ---
   constexpr int8_t  OLED_MOSI     = 2;
@@ -42,11 +28,11 @@ namespace Config {
   constexpr unsigned long BUTTON_DEBOUNCE_MS = 50;
 
   // --- Timer ---
-  constexpr unsigned long TIMER_TICK_MS         = 1000;
-  constexpr int32_t       TIMER_START_SECONDS   = -5;
+  constexpr unsigned long TIMER_TICK_MS       = 1000;
+  constexpr int32_t       TIMER_START_SECONDS = -5;
 
   // --- Buzzer ---
-  constexpr uint8_t       BUZZER_PIN         = 25;
+  constexpr uint8_t       BUZZER_PIN         = 25;    // ojo: en ESP32-S3 el GPIO 25 no existe
   constexpr unsigned long BUZZER_INTERVAL_MS = 5000;  // cada 5 s
   constexpr unsigned long BUZZER_BEEP_MS     = 150;   // duración del pitido
   constexpr unsigned int  BUZZER_FREQ_HZ     = 2000;

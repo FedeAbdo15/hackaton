@@ -5,8 +5,12 @@
 #include "Feedback.h"
 #include "GameState.h"
 
-// OLED SSD1306 128x64 (0,96") por SPI: muestra el valor arriba en chico
-// y una animación de temperatura en grande en el centro.
+// OLED SSD1306 128x64 (0,96") por SPI:
+//  - WaitingStart: pantalla de inicio esperando BOTÓN N2
+//  - NotReady:     mensaje "Tesoro no preparado"
+//  - Starting:     mensaje "Juego comenzado" por 5 segundos
+//  - Playing:      distancia arriba en chico + animaciones en grande (Pingüino, Tibia, This is fine)
+//  - Victory:      animación de cofre del tesoro + tiempo tardado
 class OledFeedback : public Feedback {
 public:
   explicit OledFeedback(const GameState& game);
@@ -15,13 +19,16 @@ public:
   void update(Proximity proximity, unsigned long now) override;
 
 private:
-  void draw(Proximity proximity, bool hasSignal, int rssi);
+  void drawWaitingStart();
+  void drawNotReady();
+  void drawStarting(unsigned long now);
+  void drawPlaying(Proximity proximity);
+  void drawVictory();
   void drawAnimation(Proximity proximity, bool hasSignal);
 
   const GameState& game_;
   Adafruit_SSD1306 display_;
-  bool ready_ = false;
-
-  uint8_t animFrame_ = 0;
+  bool          ready_      = false;
+  uint8_t       animFrame_  = 0;
   unsigned long lastDrawMs_ = 0;
 };

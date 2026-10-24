@@ -1,26 +1,31 @@
 /*
- * Buscador — Búsqueda del tesoro BLE
+ * Buscador — Búsqueda del tesoro por ESP-NOW
  *
- * Escucha el beacon del Tesoro, filtra el RSSI y muestra en la OLED el RSSI filtrado;
- * además transmite su propio beacon BLE al iniciar con el botón 1.
- *
- * Requiere:
- *  - Placa: esp32 by Espressif Systems
- *  - Biblioteca: NimBLE-Arduino (h2zero) v2.x
- *  - Bibliotecas: Adafruit SSD1306 + Adafruit GFX
+ * Flujo de juego en el Buscador:
+ *  1. Espera a que el Jugador 2 presione el BOTÓN N2 (GPIO 19).
+ *  2. Si el Tesoro aún no transmite (Jugador 1 no presionó BOTÓN N1):
+ *       -> Muestra en pantalla "Tesoro no preparado".
+ *     Si el Tesoro ya transmite:
+ *       -> Envía comando GameStart por ESP-NOW al Tesoro.
+ *       -> Muestra "Juego comenzado" por 5 segundos.
+ *  3. Durante la búsqueda:
+ *       -> Filtra el RSSI de los paquetes ESP-NOW del Tesoro.
+ *       -> Muestra en la OLED la distancia hacia el Tesoro (0 a 100) y una animación
+ *          dependiendo del threshold (Frío, Tibio, Caliente).
+ *  4. Cuando la distancia es 0 (Proximity::Encontrado):
+ *       -> Envía comando TreasureFound por ESP-NOW al Tesoro para detener timer y buzzer.
+ *       -> Muestra pantalla de victoria con animación según el tiempo tardado.
  */
 
 #include "config.h"
 #include "BleScanner.h"
-#include "TreasureBeacon.h"
 #include "Button.h"
 #include "GameState.h"
 #include "OledFeedback.h"
 #include "SerialFeedback.h"
 
-BleScanner     scanner(Config::TREASURE_UUID);
-TreasureBeacon beacon(Config::BEACON_UUID);
-Button         startButton(Config::BUTTON_START_PIN);
+BleScanner     scanner;
+Button         buttonN2(Config::BUTTON_N2_PIN);
 GameState      game;
 
 OledFeedback   oled(game);
@@ -28,7 +33,6 @@ SerialFeedback serialFeedback;
 
 Feedback* feedbacks[] = { &oled, &serialFeedback };
 
-bool          searching      = false;
 unsigned long lastDebugLogMs = 0;
 
 // RSSI crudo vs filtrado, para calibrar umbrales y EMA_ALPHA en el lugar
@@ -38,13 +42,15 @@ void logDebug(const RssiReading& reading, unsigned long now) {
   }
   lastDebugLogMs = now;
 
-  if (!game.hasSignal()) {
+  if (!game.hasSignal() || game.phase() != GamePhase::Playing) {
     return;
   }
   Serial.print("[Buscador] RSSI crudo: ");
   Serial.print(reading.rssi);
   Serial.print(" | filtrado: ");
   Serial.print(game.filteredRssi(), 1);
+  Serial.print(" | dist: ");
+  Serial.print(game.distance());
   Serial.print(" | ");
   Serial.println(toString(game.proximity()));
 }
@@ -53,33 +59,37 @@ void setup() {
   Serial.begin(Config::SERIAL_BAUD);
   Serial.println("[Buscador] Iniciando...");
 
-  startButton.begin();
+  buttonN2.begin();
   for (Feedback* feedback : feedbacks) {
     feedback->begin();
   }
+  scanner.begin();
 
-  Serial.println("[Buscador] Listo. Apretá START para buscar y transmitir.");
+  Serial.println("[Buscador] Listo. Presiona BOTON N2 para iniciar el juego.");
 }
 
 void loop() {
   const unsigned long now = millis();
 
-  if (!searching) {
-    if (startButton.wasPressed(now)) {
-      searching = true;
-      beacon.begin();
-      scanner.begin();
-      Serial.println("[Buscador] Buscando el tesoro y transmitiendo beacon...");
+  // 1) Lectura de señal del Tesoro y actualización de estado
+  const RssiReading reading   = scanner.read();
+  const Proximity   proximity = game.update(reading, now);
+
+  // 2) Botón N2 (Iniciar juego)
+  if (buttonN2.wasPressed(now)) {
+    if (game.onButtonN2Pressed(now)) {
+      scanner.sendGameStart();
+    } else if (game.phase() == GamePhase::NotReady) {
+      Serial.println("[Buscador] BOTON N2 presionado: Tesoro no preparado");
     }
-    return;
   }
 
-  beacon.update(now);
+  // 3) Notificar al Tesoro apenas se encuentra (distancia == 0)
+  if (game.consumeJustFound()) {
+    scanner.sendTreasureFound();
+  }
 
-
-  const RssiReading reading = scanner.read();
-  const Proximity proximity = game.update(reading, now);
-
+  // 4) Salidas (OLED + Serial)
   for (Feedback* feedback : feedbacks) {
     feedback->update(proximity, now);
   }
