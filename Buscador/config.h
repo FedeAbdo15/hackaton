@@ -19,7 +19,7 @@ namespace Config {
   // --- Umbrales de proximidad (dBm, calibrar en el lugar) ---
   constexpr float THRESHOLD_TIBIO      = -55.0f;
   constexpr float THRESHOLD_CALIENTE   = -45.0f;
-  constexpr float THRESHOLD_ENCONTRADO = -10.0f;
+  constexpr float THRESHOLD_ENCONTRADO = -5.0f;
   constexpr float HYSTERESIS_DB        = 3.0f;
 
   // --- Juego y Tiempos ---
