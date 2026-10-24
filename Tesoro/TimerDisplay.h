@@ -3,19 +3,19 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-// Cronómetro en la OLED SSD1306 128x64 (0,96") por SPI, formato HH:MM:SS.
-//
-// Eventos:
-//  - begin():  inicia la pantalla y muestra 00:00:00 detenido.
-//              Si la OLED falla, el resto del Tesoro sigue funcionando.
-//  - start():  empieza el conteo desde TIMER_START_SECONDS (-5 s: -00:00:05).
-//  - stop():   pausa el conteo; la pantalla queda mostrando el último tiempo.
-//  - update(): suma 1 s cada TIMER_TICK_MS y redibuja solo en ese momento.
+// Pantalla OLED SSD1306 128x64 (0,96") por SPI para el Tesoro:
+//  - begin():             muestra "Presione el boton 1 / para empezar".
+//  - showWaitingSeeker(): muestra pantalla de espera tras presionar el botón 1.
+//  - start():             inicia cuenta regresiva ("El juego comienza en 5..4..3..2..1.")
+//                         y luego muestra el reloj animado haciendo tick-tack con el
+//                         reloj digital en el centro.
+//  - stop():              detiene el conteo y la animación dejando el tiempo final en pantalla.
 class TimerDisplay {
 public:
   TimerDisplay();
 
   bool begin();
+  void showWaitingSeeker();
   void start(unsigned long now);
   void stop();
   void update(unsigned long now);  // no bloqueante
@@ -25,11 +25,19 @@ public:
 
 private:
   void draw();
-  void printCentered(const char* text, uint8_t size);
+  void drawStartPrompt();
+  void drawWaitingSeeker();
+  void drawCountdown();
+  void drawClockWithDigitalCenter();
+  void printCentered(const char* text, uint8_t size, int16_t y);
 
   Adafruit_SSD1306 display_;
-  bool          ready_      = false;
-  bool          running_    = false;
-  int32_t       seconds_    = 0;
-  unsigned long lastTickMs_ = 0;
+  bool          ready_         = false;
+  bool          running_       = false;
+  bool          startedOnce_   = false;
+  bool          waitingSeeker_ = false;
+  int32_t       seconds_       = 0;
+  uint8_t       animFrame_     = 0;
+  unsigned long lastTickMs_    = 0;
+  unsigned long lastAnimMs_    = 0;
 };

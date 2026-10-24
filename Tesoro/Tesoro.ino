@@ -38,6 +38,7 @@ void onButtonN1Pressed() {
     return;
   }
   beacon.start();
+  timerDisplay.showWaitingSeeker();
   state = TreasureState::WaitingSeeker;
   Serial.println("[Tesoro] BOTON N1 presionado: transmitiendo y esperando al Buscador...");
 }

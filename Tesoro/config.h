@@ -14,14 +14,15 @@ namespace Config {
   constexpr unsigned long SERIAL_BAUD = 9600;
 
   // --- OLED SSD1306 0,96" por SPI ---
-  constexpr int8_t  OLED_MOSI     = 2;
-  constexpr int8_t  OLED_CLK      = 1;
-  constexpr int8_t  OLED_CS       = 3;
-  constexpr int8_t  OLED_DC       = 6;
-  constexpr int8_t  OLED_RST      = 7;
-  constexpr uint8_t OLED_WIDTH    = 128;
-  constexpr uint8_t OLED_HEIGHT   = 64;
-  constexpr uint8_t OLED_ROTATION = 2;  // 0 = normal, 2 = 180°
+  constexpr int8_t        OLED_MOSI       = 2;
+  constexpr int8_t        OLED_CLK        = 1;
+  constexpr int8_t        OLED_CS         = 3;
+  constexpr int8_t        OLED_DC         = 6;
+  constexpr int8_t        OLED_RST        = 7;
+  constexpr uint8_t       OLED_WIDTH      = 128;
+  constexpr uint8_t       OLED_HEIGHT     = 64;
+  constexpr uint8_t       OLED_ROTATION   = 2;    // 0 = normal, 2 = 180°
+  constexpr unsigned long OLED_REFRESH_MS = 150;  // refresco de animación del reloj
 
   // --- Botón N1 (entre el pin y GND, con pull-up interno) ---
   constexpr uint8_t       BUTTON_N1_PIN      = 19;
