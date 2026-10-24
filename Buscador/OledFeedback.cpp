@@ -19,8 +19,7 @@ void OledFeedback::begin() {
   display_.setRotation(Config::OLED_ROTATION);
   display_.clearDisplay();
   display_.setTextColor(SSD1306_WHITE);
-  OledAnimations::printCentered(display_, "Presiona el boton 1", 1, 20);
-  OledAnimations::printCentered(display_, "para empezar", 1, 34);
+  drawWaitingStart();
   display_.display();
 }
 
@@ -32,45 +31,89 @@ void OledFeedback::update(Proximity proximity, unsigned long now) {
     return;
   }
 
-  const bool hasSignal = game_.hasSignal() && proximity != Proximity::SinSenal;
-  const int rssi = hasSignal ? static_cast<int>(lroundf(game_.filteredRssi())) : 0;
+  display_.clearDisplay();
 
-  int rssiDraw = 0;
-  if (hasSignal) {
-    rssiDraw = map(-rssi, 35, 90, 0, 100);
-    if (rssiDraw < 0) {
-      rssiDraw = 0;
-    }
+  switch (game_.phase()) {
+    case GamePhase::WaitingStart:
+      drawWaitingStart();
+      break;
+    case GamePhase::NotReady:
+      drawNotReady();
+      break;
+    case GamePhase::Starting:
+      drawStarting(now);
+      break;
+    case GamePhase::Playing:
+      drawPlaying(proximity);
+      break;
+    case GamePhase::Victory:
+      drawVictory();
+      break;
   }
 
-  draw(proximity, hasSignal, rssiDraw);
-
+  display_.display();
   animFrame_++;
   lastDrawMs_ = now;
 }
 
-void OledFeedback::draw(Proximity proximity, bool hasSignal, int rssi) {
-  display_.clearDisplay();
+void OledFeedback::drawWaitingStart() {
+  OledAnimations::printCentered(display_, "Presiona el boton 2", 1, 18);
+  OledAnimations::printCentered(display_, "para empezar", 1, 32);
+}
 
+void OledFeedback::drawNotReady() {
+  if ((animFrame_ % 2) == 0) {
+    display_.drawRect(0, 0, Config::OLED_WIDTH, Config::OLED_HEIGHT, SSD1306_WHITE);
+  }
+  OledAnimations::printCentered(display_, "Tesoro no", 2, 14);
+  OledAnimations::printCentered(display_, "preparado", 2, 36);
+}
+
+void OledFeedback::drawStarting(unsigned long now) {
+  OledAnimations::printCentered(display_, "Juego", 2, 8);
+  OledAnimations::printCentered(display_, "comenzado", 2, 28);
+
+  char countdownText[16];
+  snprintf(countdownText, sizeof(countdownText), "Iniciando en %u...", game_.startingSecondsLeft(now));
+  OledAnimations::printCentered(display_, countdownText, 1, 52);
+}
+
+void OledFeedback::drawPlaying(Proximity proximity) {
   if (proximity == Proximity::Encontrado) {
-    OledAnimations::drawEncontrado(display_, animFrame_);
-    display_.display();
+    drawVictory();
     return;
   }
 
-  // Arriba en texto chico: número (o SIN SENAL cuando no hay señal)
-  if (hasSignal) {
+  const bool hasSignal = game_.hasSignal() && proximity != Proximity::SinSenal;
+  const int dist = game_.distance();
+
+  // Arriba en texto chico: distancia (o SIN SENAL cuando no hay señal)
+  if (hasSignal && dist >= 0) {
     char value[8];
-    snprintf(value, sizeof(value), "%d", rssi);
+    snprintf(value, sizeof(value), "%d", dist);
     OledAnimations::printCentered(display_, value, 1, 0);
   } else {
     OledAnimations::printCentered(display_, toString(Proximity::SinSenal), 1, 0);
   }
 
-  // En el medio grande: animación según la temperatura
+  // En el medio grande: animación según el threshold (Pingüino, Tibia, This is fine)
   drawAnimation(proximity, hasSignal);
+}
 
-  display_.display();
+void OledFeedback::drawVictory() {
+  const uint32_t secs = game_.victorySeconds();
+  uint8_t speedFrame = animFrame_;
+  if (secs > Config::MEDIUM_WIN_SECONDS) {
+    speedFrame = animFrame_ / 4;  // más lento si tardó mucho
+  } else if (secs > Config::FAST_WIN_SECONDS) {
+    speedFrame = animFrame_ / 2;  // velocidad media
+  }
+
+  OledAnimations::drawEncontrado(display_, speedFrame);
+
+  char timeText[16];
+  snprintf(timeText, sizeof(timeText), "%lu s", static_cast<unsigned long>(secs));
+  OledAnimations::printCentered(display_, timeText, 1, 22);
 }
 
 void OledFeedback::drawAnimation(Proximity proximity, bool hasSignal) {

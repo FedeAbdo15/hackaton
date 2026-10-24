@@ -1,28 +1,45 @@
 #pragma once
 
-#include <NimBLEDevice.h>
+#include <Arduino.h>
+#include <atomic>
 
-// Beacon BLE no conectable que anuncia el UUID del tesoro para que el Buscador lo detecte.
-//
-// Eventos:
-//  - begin():  inicializa NimBLE y configura el anuncio (sin transmitir todavía).
-//  - start():  comienza a transmitir el anuncio BLE (al presionar BOTÓN N1).
-//  - stop():   detiene la transmisión del anuncio BLE.
-//  - update(): si está activo, cada HEALTH_CHECK_INTERVAL_MS verifica que siga anunciando.
+enum class MsgType : uint8_t {
+  TreasureBeacon = 1,  // Emitido por el Tesoro periódicamente tras BOTÓN N1
+  GameStart      = 2,  // Emitido por el Buscador al presionar BOTÓN N2
+  TreasureFound  = 3   // Emitido por el Buscador al llegar a distancia 0
+};
+
+struct __attribute__((packed)) EspNowPacket {
+  uint32_t magic;
+  MsgType  type;
+  int32_t  timerSeconds;
+};
+
+// Comunicación 100% ESP-NOW del Tesoro:
+//  - begin():  inicializa Wi-Fi en modo STA y ESP-NOW (sin transmitir todavía).
+//  - start():  comienza a transmitir paquetes broadcast TreasureBeacon (al presionar BOTÓN N1).
+//  - stop():   detiene la transmisión de beacons.
+//  - update(): envía un paquete cada BEACON_INTERVAL_MS con los segundos actuales del timer.
+//  - Recibe instantáneamente los eventos GameStart y TreasureFound desde el Buscador.
 class TreasureBeacon {
 public:
   void begin();
-  bool start();
+  void start();
   void stop();
-  void update(unsigned long now);  // no bloqueante
+  void update(unsigned long now, int32_t currentTimerSeconds);  // no bloqueante
 
-  bool isAdvertising() const;
   bool isActive() const { return active_; }
 
-private:
-  static NimBLEAdvertisementData buildAdvertisementData();
+  bool consumeGameStart();
+  bool consumeTreasureFound();
 
-  NimBLEAdvertising* advertising_ = nullptr;
-  unsigned long lastHealthCheckMs_ = 0;
-  bool active_ = false;
+  void onCommandReceived(MsgType type);
+
+private:
+  void sendBeacon(int32_t currentTimerSeconds);
+
+  unsigned long     lastBeaconMs_          = 0;
+  bool              active_                = false;
+  std::atomic<bool> gameStartReceived_{false};
+  std::atomic<bool> treasureFoundReceived_{false};
 };
