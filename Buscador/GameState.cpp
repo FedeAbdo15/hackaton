@@ -85,13 +85,14 @@ int GameState::distance() const {
   if (current_ == Proximity::Encontrado || phase_ == GamePhase::Victory) {
     return 0;
   }
-  if (!hasSignal() || current_ == Proximity::SinSenal) {
+  if (current_ == Proximity::SinSenal) {
     return -1;
   }
   const int rssi = static_cast<int>(lroundf(filter_.value()));
-  const long mapped = map(-rssi, 35, 90, 0, 100);
+  const long maxThreshold = static_cast<long>(Config::THRESHOLD_ENCONTRADO);
+  const long minThreshold = static_cast<long>(Config::THRESHOLD_TIBIO);
+  const long mapped = map(rssi, maxThreshold, minThreshold, 0, 100);
   if (mapped < 1)   return 1;
-  if (mapped > 100) return 100;
   return static_cast<int>(mapped);
 }
 

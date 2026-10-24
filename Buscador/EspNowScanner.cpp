@@ -1,4 +1,4 @@
-#include "BleScanner.h"
+#include "EspNowScanner.h"
 #include "config.h"
 
 #include <WiFi.h>
@@ -8,7 +8,7 @@
 
 namespace {
   constexpr uint8_t BROADCAST_MAC[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-  BleScanner* g_scannerInstance = nullptr;
+  EspNowScanner* g_scannerInstance = nullptr;
 
 #if defined(ESP_ARDUINO_VERSION) && ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
   void onEspNowRecv(const esp_now_recv_info_t* info, const uint8_t* data, int len) {
@@ -50,7 +50,7 @@ namespace {
 #endif
 }
 
-void BleScanner::begin() {
+void EspNowScanner::begin() {
   g_scannerInstance = this;
 
   WiFi.mode(WIFI_STA);
@@ -80,7 +80,7 @@ void BleScanner::begin() {
   Serial.println("[Buscador] ESP-NOW listo en canal 1");
 }
 
-RssiReading BleScanner::read() {
+RssiReading EspNowScanner::read() {
   RssiReading reading;
   reading.fresh           = fresh_.exchange(false);
   reading.rssi            = lastRssi_.load();
@@ -90,7 +90,7 @@ RssiReading BleScanner::read() {
   return reading;
 }
 
-void BleScanner::onBeaconReceived(int rssi, int32_t timerSeconds) {
+void EspNowScanner::onBeaconReceived(int rssi, int32_t timerSeconds) {
   lastRssi_            = rssi;
   lastTreasureSeconds_ = timerSeconds;
   lastSeenMs_          = millis();
@@ -98,17 +98,17 @@ void BleScanner::onBeaconReceived(int rssi, int32_t timerSeconds) {
   fresh_               = true;
 }
 
-void BleScanner::sendGameStart() {
+void EspNowScanner::sendGameStart() {
   sendCommand(MsgType::GameStart);
   Serial.println("[Buscador] ESP-NOW -> GameStart enviado");
 }
 
-void BleScanner::sendTreasureFound() {
+void EspNowScanner::sendTreasureFound() {
   sendCommand(MsgType::TreasureFound);
   Serial.println("[Buscador] ESP-NOW -> TreasureFound enviado");
 }
 
-void BleScanner::sendCommand(MsgType type) {
+void EspNowScanner::sendCommand(MsgType type) {
   EspNowPacket pkt{};
   pkt.magic        = Config::PACKET_MAGIC;
   pkt.type         = type;

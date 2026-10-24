@@ -1,6 +1,6 @@
 #pragma once
 
-#include "BleScanner.h"
+#include "EspNowScanner.h"
 #include "Proximity.h"
 #include "ProximityClassifier.h"
 #include "SignalFilter.h"
