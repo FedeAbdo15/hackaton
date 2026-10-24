@@ -5,6 +5,7 @@ Sistema interactivo de **Búsqueda del Tesoro** para dos jugadores en tiempo rea
 El sistema consta de dos dispositivos que se comunican entre sí sin necesidad de router Wi-Fi:
 1. **Tesoro (`Tesoro/`)**: Ocultado por el **Jugador 1**. Emite paquetes broadcast ESP-NOW periódicos al activarse con su botón físico, lleva un cronómetro en su pantalla OLED (arrancando desde `-00:00:05`) y emite un pitido por buzzer cada 5 segundos durante la partida hasta que el Buscador lo encuentra.
 2. **Buscador (`Buscador/`)**: Utilizado por el **Jugador 2**. Mide el RSSI de los paquetes ESP-NOW recibidos, los suaviza con un filtro exponencial (EMA), calcula una distancia relativa de `0` a `100`, clasifica la proximidad con histéresis y muestra animaciones gráficas en su pantalla OLED según qué tan cerca está del Tesoro.
+3. **App de partidas (`app/`)**: App móvil (Expo / React Native) que organiza partidas de varios jugadores: arma las rondas, rota quién esconde y quién busca, registra el tiempo de cada búsqueda y calcula el scoreboard.
 
 ---
 
@@ -21,19 +22,38 @@ hackaton/
 │   ├── TimerDisplay.h / .cpp        # Cronómetro en pantalla OLED SSD1306 (desde -00:00:05)
 │   ├── Buzzer.h / .cpp              # Pitido periódico no bloqueante cada 5 segundos
 │   └── Button.h / .cpp              # Lectura del Botón N1 con pull-up interno y antirrebote
-└── Buscador/
-    ├── Buscador.ino                 # Sketch principal del Buscador
-    ├── config.h                     # Canal ESP-NOW, umbrales de RSSI (dBm), tiempos y pines
-    ├── EspNowScanner.h / .cpp       # Recepción de RSSI por ESP-NOW y envío de eventos al Tesoro
-    ├── SignalFilter.h               # Filtro de media móvil exponencial (EMA) para suavizar el RSSI
-    ├── Proximity.h                  # Enum de niveles de proximidad (SinSenal, Frio, Tibio, Caliente, Encontrado)
-    ├── ProximityClassifier.h / .cpp # Clasificador por umbrales en dBm con histéresis
-    ├── GameState.h / .cpp           # Fases del juego, conteo regresivo, cálculo de distancia (0..100) y timeout
-    ├── Feedback.h                   # Interfaz común para salidas del sistema
-    ├── SerialFeedback.h             # Log de cambios de estado por consola Serial
-    ├── OledFeedback.h / .cpp        # Renderizado de pantallas según fase del juego y estado
-    ├── OledAnimations.h / .cpp      # Animaciones gráficas en OLED (Radar, Pingüino, Tibia, This is fine, Cofre)
-    └── Button.h / .cpp              # Lectura del Botón N2 con pull-up interno y antirrebote
+├── Buscador/
+│   ├── Buscador.ino                 # Sketch principal del Buscador
+│   ├── config.h                     # Canal ESP-NOW, umbrales de RSSI (dBm), tiempos y pines
+│   ├── EspNowScanner.h / .cpp       # Recepción de RSSI por ESP-NOW y envío de eventos al Tesoro
+│   ├── SignalFilter.h               # Filtro de media móvil exponencial (EMA) para suavizar el RSSI
+│   ├── Proximity.h                  # Enum de niveles de proximidad (SinSenal, Frio, Tibio, Caliente, Encontrado)
+│   ├── ProximityClassifier.h / .cpp # Clasificador por umbrales en dBm con histéresis
+│   ├── GameState.h / .cpp           # Fases del juego, conteo regresivo, cálculo de distancia (0..100) y timeout
+│   ├── Feedback.h                   # Interfaz común para salidas del sistema
+│   ├── SerialFeedback.h             # Log de cambios de estado por consola Serial
+│   ├── OledFeedback.h / .cpp        # Renderizado de pantallas según fase del juego y estado
+│   ├── OledAnimations.h / .cpp      # Animaciones gráficas en OLED (Radar, Pingüino, Tibia, This is fine, Cofre)
+│   └── Button.h / .cpp              # Lectura del Botón N2 con pull-up interno y antirrebote
+└── app/                             # App de partidas (Expo + Expo Router)
+    ├── app.json                     # Configuración de Expo (nombre, ícono, tema oscuro)
+    ├── package.json                 # Dependencias y scripts (start, android, ios, web)
+    └── src/
+        ├── app/                     # Pantallas (cada archivo es una ruta)
+        │   ├── _layout.tsx          # Navegador (stack)
+        │   ├── index.tsx            # Inicio: nueva partida, continuar, historial
+        │   ├── new.tsx              # Alta de jugadores y cantidad de rondas
+        │   ├── game/[id].tsx        # Turno actual: quién esconde, quién busca y carga del tiempo
+        │   ├── results/[id].tsx     # Scoreboard final y detalle de turnos
+        │   └── history.tsx          # Partidas terminadas (mantener presionado para borrar)
+        ├── components/
+        │   ├── ui.tsx               # Botones, tarjetas y paleta de colores
+        │   └── Scoreboard.tsx       # Tabla de posiciones
+        └── lib/
+            ├── types.ts             # Modelos: Player, Turn, Game, PlayerScore
+            ├── schedule.ts          # Generación y rotación de turnos por ronda
+            ├── scoring.ts           # Reglas de puntaje y armado del scoreboard
+            └── storage.ts           # Persistencia local con AsyncStorage (sin backend)
 ```
 
 ---
@@ -56,7 +76,7 @@ hackaton/
    * En el centro de la pantalla renderiza una animación grande acorde al estado de proximidad:
      * 📡 **`SIN SENAL`**: Ondas de radar expandiéndose con un `"?"` en el centro (cuando se pierde la señal por más de `3 s`).
      * 🐧 **`FRIO`** (`RSSI < THRESHOLD_TIBIO`): Un **pingüino** caminando y aleteando bajo la nieve.
-     * 🦴 **`TIBIO`** (`RSSI >= -60 dBm`): Una **tibia (hueso)** balanceándose.
+     * 🦴 **`TIBIO`** (`RSSI >= -55 dBm`): Una **tibia (hueso)** balanceándose.
      * 🔥 **`CALIENTE`** (`RSSI >= -45 dBm`): El meme ***"This is fine"*** (el perrito con sombrero y su taza de café humeante rodeado de fuego).
 5. **Tesoro Encontrado (`Victory`)**:
    * Al alcanzar `THRESHOLD_ENCONTRADO` (`>= -10 dBm`, distancia `0`), el Buscador envía automáticamente el comando `TreasureFound` por ESP-NOW.
@@ -100,6 +120,28 @@ Ambos dispositivos comparten el mismo esquema de pines para la pantalla OLED SPI
 
 ---
 
+## 📱 App de Partidas (`app/`)
+
+App móvil para jugar en grupo y llevar el puntaje. **No se conecta a las placas**: el tiempo se carga a mano leyendo la OLED del Tesoro al final de cada búsqueda. Todo se guarda localmente en el dispositivo (AsyncStorage), sin backend.
+
+### Flujo
+1. **Nueva partida**: se cargan los jugadores (mínimo 2) y la cantidad de rondas (1 a 10).
+2. **Turnos**: en cada ronda cada jugador esconde una vez y busca una vez. El orden se mezcla al azar y las duplas escondedor/buscador rotan entre rondas.
+3. **Cada turno**: la app indica quién esconde (Botón 1 en el Tesoro) y quién busca (Botón 2 en el Buscador). Al terminar se carga el tiempo `MM:SS` de la pantalla del Tesoro o se marca **"Se rindió"**.
+4. **Resultados**: scoreboard con ganador, puntos como buscador y como escondedor, mejores tiempos y detalle de cada turno. Las partidas terminadas quedan en el historial.
+
+### Puntaje (`src/lib/scoring.ts`)
+| Rol | Regla |
+| :--- | :--- |
+| **Buscador** | De `100` pts (encontrado al instante) bajando linealmente hasta un mínimo de `10` pts. Se rinde = `0` |
+| **Escondedor** | De `0` a `60` pts cuanto más tardan en encontrar su Tesoro. Si el buscador se rinde = `80` pts |
+
+* El tiempo se topea en `300 s` (5 min): a partir de ahí ya no cambia el puntaje.
+* **Desempate**: gana el mejor tiempo como buscador.
+* Todos los valores son ajustables en el objeto `SCORING`.
+
+---
+
 ## 🛠️ Requisitos e Instalación
 
 ### Librerías Necesarias
@@ -110,7 +152,18 @@ Ambos dispositivos comparten el mismo esquema de pines para la pantalla OLED SPI
 1. Cargar `Tesoro/Tesoro.ino` en la placa del **Jugador 1**.
 2. Cargar `Buscador/Buscador.ino` en la placa del **Jugador 2**.
 3. Para calibrar las distancias según el entorno físico, ajustar en `Buscador/config.h`:
-   * `THRESHOLD_TIBIO` (por defecto `-60.0f` dBm)
+   * `THRESHOLD_TIBIO` (por defecto `-55.0f` dBm)
    * `THRESHOLD_CALIENTE` (por defecto `-45.0f` dBm)
    * `THRESHOLD_ENCONTRADO` (por defecto `-10.0f` dBm)
    * `HYSTERESIS_DB` (por defecto `3.0f` dB para evitar parpadeos entre niveles)
+
+### App de Partidas
+Requiere **Node.js** y la app **Expo Go** en el celular.
+
+```bash
+cd app
+npm install
+npm start          # abre Expo en modo offline; escanear el QR con Expo Go
+npm run android    # o directo en Android
+npm run web        # versión web
+```
