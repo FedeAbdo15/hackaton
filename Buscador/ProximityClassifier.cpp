@@ -23,5 +23,6 @@ Proximity ProximityClassifier::levelFor(float rssi, float margin) {
   if (rssi >= Config::THRESHOLD_ENCONTRADO - margin) return Proximity::Encontrado;
   if (rssi >= Config::THRESHOLD_CALIENTE - margin)   return Proximity::Caliente;
   if (rssi >= Config::THRESHOLD_TIBIO - margin)      return Proximity::Tibio;
-  return Proximity::Frio;
+  if (rssi >= Config::THRESHOLD_FRIO - margin)      return Proximity::Frio;
+  return Proximity::SinSenal;
 }

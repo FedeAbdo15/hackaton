@@ -20,10 +20,9 @@ BleScanner scanner(Config::TREASURE_UUID);
 GameState game;
 
 OledFeedback oled(game);
-LedBarFeedback ledBar(Config::LED_PINS, Config::LED_COUNT);
 SerialFeedback serialFeedback;
 
-Feedback* feedbacks[] = { &oled, &ledBar, &serialFeedback };
+Feedback* feedbacks[] = { &oled, &serialFeedback };
 
 unsigned long lastDebugLogMs = 0;
 
